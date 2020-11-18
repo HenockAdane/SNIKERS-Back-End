@@ -194,6 +194,9 @@ UserModel.find().then(data => {
 
 // })
 
+app.get("/", (req, res)=> {
+    res.send("Hello world")
+})
 
 app.get("/products", (req, res) => {
     ProductModel.find().then(data => {
