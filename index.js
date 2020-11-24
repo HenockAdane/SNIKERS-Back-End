@@ -1,7 +1,6 @@
-const express = require('express');
-const app = express();
-const port = 3000;
-
+const express = require("express")
+const app = express()
+const port = 3000
 
 const bodyParser = require("body-parser")
 //get the body parser
@@ -21,11 +20,12 @@ const bcrypt = require("bcrypt")
 const mongoose = require("mongoose")
 //console.log(dbname)
 const dbURI = "mongodb+srv://henock:2EDO2c6bNBx8Waq2@cluster0.ff35n.mongodb.net/shop?retryWrites=true&w=majority"
-// console.log(dbURI)
 //console.log(process.env.PASSWORD)
 mongoose.connect(dbURI, { useNewUrlParser: true, useUnifiedTopology: true }).then(res => {
     console.log("Connected to Database")
 }).catch((err => console.log(err + "THIS IS THE ERROR")))
+
+
 
 
 
@@ -190,7 +190,6 @@ UserModel.find().then(data => {
 
 // })
 
-app.get("/", (req, res) => console.log("Hello World"))
 
 app.get("/products", (req, res) => {
     ProductModel.find().then(data => {
@@ -207,6 +206,24 @@ app.get("/shop/mens", (req, res) => {
     console.log("helllo")
     ProductModel.find({for: "Men"}).then(docs => {
         console.log(docs + "4docccccccccccccccccccccccccccccccccccccccc")
+        res.send(docs)
+    }).catch(err => console.log(err))
+    
+})
+
+app.get("/shop/womens", (req, res) => {
+    console.log("helllo")
+    ProductModel.find({for: "Women"}).then(docs => {
+        console.log(docs + "womeennnnnnnnnnnnnnnnn4docccccccccccccccccccccccccccccccccccccccc")
+        res.send(docs)
+    }).catch(err => console.log(err))
+    
+})
+
+app.get("/shop/kids", (req, res) => {
+    console.log("helllo")
+    ProductModel.find().then(docs => {
+        console.log(docs + "kidddddddddddddsssssssssssssssssss4docccccccccccccccccccccccccccccccccccccccc")
         res.send(docs)
     }).catch(err => console.log(err))
     
@@ -306,12 +323,18 @@ app.post("/signIn", (req, res)=> {
 })
 
 
+app.post("/contact-us", (req, res) => {
+    console.log(req.body)
+    res.send("Contact Us")
+})
+
+app.get("/", (req, res) =>{
+    res.send("hello world")
+})
+
 
 
 //39
 
 //h , h@h, hh
-
-
-
 app.listen(process.env.PORT || port, () => console.log(`Example app listening at http://localhost:${port}`));
