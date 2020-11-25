@@ -19,7 +19,7 @@ const bcrypt = require("bcrypt")
 
 const mongoose = require("mongoose")
 //console.log(dbname)
-const dbURI = "mongodb+srv://henock:2EDO2c6bNBx8Waq2@cluster0.ff35n.mongodb.net/shop?retryWrites=true&w=majority"
+const dbURI = process.env.URI
 //console.log(process.env.PASSWORD)
 mongoose.connect(dbURI, { useNewUrlParser: true, useUnifiedTopology: true }).then(res => {
     console.log("Connected to Database")
