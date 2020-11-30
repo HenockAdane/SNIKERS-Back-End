@@ -1,6 +1,6 @@
 const express = require("express")
 const app = express()
-const port = 3000
+const port = 3001
 
 const bodyParser = require("body-parser")
 //get the body parser
@@ -20,6 +20,7 @@ const bcrypt = require("bcrypt")
 const mongoose = require("mongoose")
 //console.log(dbname)
 const dbURI = process.env.URI
+
 //console.log(process.env.PASSWORD)
 mongoose.connect(dbURI, { useNewUrlParser: true, useUnifiedTopology: true }).then(res => {
     console.log("Connected to Database")
@@ -41,7 +42,11 @@ let user = null
 const Schema = mongoose.Schema;
 
 const userSchema = Schema({
-    username: {
+    firstName: {
+        type: String,
+        required: true
+    },
+    lastName: {
         type: String,
         required: true
     },
@@ -51,6 +56,18 @@ const userSchema = Schema({
     },
     password: {
         type: String,
+        required: true
+    },
+    confirmationCode: {
+        type: String,
+        required: true
+    },
+    confirmed:{
+        type: Boolean,
+        required: true
+    },
+    createdAt:{
+        type: Date,
         required: true
     }
 }, {timestamps: true})
@@ -166,6 +183,7 @@ const product = new ProductModel({  images: ["https://static.nike.com/a/images/t
 })
 
 
+
 // product.save()
 console.log("saved")
 
@@ -231,34 +249,68 @@ app.get("/shop/kids", (req, res) => {
 
 app.post("/signUp", (req, res)=> {
     console.log(req.body.password, req.body.email)
-    const username = req.body.username
-    const email = req.body.email
-    const password = req.body.password
+    const {firstName, lastName, email, password} = req.body
 
     //searching for a user with an email property in the database
     UserModel.findOne({email: email}).then(doc => {
 
         //checking if user with that email exists
         if (doc){
-            //console.log("User With This Email Already Exists")
+            console.log("User With This Email Already Exists")
             res.send("A User With This Email Already Exists")
         }
 
         else{
 
             //hash the password so its secure and then save to database using user model
-            const hashedPassword = bcrypt.hash(password, 10).then(data => {
+            bcrypt.hash(password, 10).then(data => {
                 // console.log(`hashed password ${data}`)
+                const options = "abcdefghijklmnopqrstuvwxyz0123456789"
+                let code = ""
+                while (code.length < 50){
+                    code+= options[Math.floor(Math.random() * options.length)]
+                }
+
+                console.log(code + "=code")
+        
                 const User = new UserModel({
-                    username: username,
+                    firstName: firstName,
+                    lastName: lastName,
                     email: email,
-                    password: data
+                    password: data,
+                    confirmationCode: code,
+                    confirmed: false,
+                    createdAt: new Date()
                 })
         
                 console.log(User + "userprom")
                 
                 
                 User.save()
+
+                let transporter = nodemailer.createTransport({
+                    service: "Outlook",
+                  //   port: 587,
+                  //   secure: false, // true for 465, false for other ports
+                    auth: {
+                      user: process.env.USER, // generated ethereal user
+                      pass: process.env.PASS, // generated ethereal password
+                    },
+                  });
+                
+                  // send mail with defined transport object
+                  let info = transporter.sendMail({
+                    from: `<${process.env.USER}>`, // sender address
+                    to: email, // list of receivers
+                    subject: "Confirmation Code", // Subject line
+                  //   text: "Hello world? said galactus", // plain text body
+                    html: `<b>${code}</b>`, // html body
+                  }).then(dataa => {
+                      
+                      console.log("Message sent: %s", dataa.messageId);
+                  }).catch(err => console.log(err))
+
+                
         
                 
         
@@ -266,12 +318,81 @@ app.post("/signUp", (req, res)=> {
 
         }
 
+
     })
 
+
+    
     // let userExists = users.find(a => a.email === email);
 
         
     
+})
+
+
+app.post("/confirmation", (req, res) => {
+    const {currentUser, attemptedConfirmation} = req.body
+    UserModel.findOne({email: currentUser.email}).then(doc => {
+        console.log(attemptedConfirmation)
+        if (doc.confirmationCode === attemptedConfirmation){
+            doc.confirmed = true
+            doc.save()
+            res.send(doc)
+            console.log("code is true")
+        }
+
+        else{
+            console.log("code is false")
+        }
+
+        console.log("confirmmmconfirmmmmmmmmmmmmmmmmmmmmm")
+    })
+    
+})
+
+app.post("/resendConfirmationCode", (req, res) => {
+    const {email} = req.body
+    UserModel.findOne({email: email}).then(doc => {
+        const options = "abcdefghijklmnopqrstuvwxyz0123456789"
+                let oldCode = doc.confirmationCode
+                let newCode= ""
+
+                while (newCode.length < 50){
+                    newCode+= options[Math.floor(Math.random() * options.length)]
+                    oldCode.split("").splice(0,41).join("")
+                    if (newCode.length === 40 && newCode === oldCode){
+                        newCode = []
+                    }
+                }
+
+                doc.confirmationCode = newCode;
+                doc.save()
+                console.log("code has been resent")
+
+
+                let transporter = nodemailer.createTransport({
+                    service: "Outlook",
+                  //   port: 587,
+                  //   secure: false, // true for 465, false for other ports
+                    auth: {
+                      user: process.env.USER, // generated ethereal user
+                      pass: process.env.PASS, // generated ethereal password
+                    },
+                  });
+                
+                  // send mail with defined transport object
+                  let info = transporter.sendMail({
+                    from: `<${process.env.USER}>`, // sender address
+                    to: email, // list of receivers
+                    subject: "New Confirmation Code", // Subject line
+                  //   text: "Hello world? said galactus", // plain text body
+                    html: `<b>${newCode}</b>`, // html body
+                  }).then(dataa => {
+                      
+                      console.log("Message sent: %s", dataa.messageId);
+                  }).catch(err => console.log(err))
+
+    }).then(err => `This is the resend Confirmation code error: ${err}`)
 })
 
 
@@ -323,13 +444,38 @@ app.post("/signIn", (req, res)=> {
 })
 
 
-app.post("/contact-us", (req, res) => {
-    console.log(req.body)
-    res.send("Contact Us")
-})
+
 
 app.get("/", (req, res) =>{
     res.send("hello world")
+})
+
+app.get("/shop/all/shoes", (req, res) => {
+    ProductModel.find({type: "Shoe"}).then(data => {
+        res.send(data)
+        console.log("data for all shoes is sent")
+
+    }).catch(err => console.log(`The error for all shoes route: ${err}`))
+
+})
+
+app.get("/shop/all/clothing", (req, res) => {
+    ProductModel.find({type: {$ne: "Shoe"}}).then(data => {
+        res.send(data)
+        console.log(data)
+        console.log("data for all clothing is sent")
+
+    }).catch(err => console.log(`The error for all clothing route: ${err}`))
+
+})
+
+app.get("/shop/all/featured", (req, res) => {
+    ProductModel.find({featured: true}).then(data => {
+        res.send(data)
+        console.log("data for all shoes is sent")
+
+    }).catch(err => console.log(`The error for all shoes route: ${err}`))
+
 })
 
 
@@ -337,4 +483,97 @@ app.get("/", (req, res) =>{
 //39
 
 //h , h@h, hh
+const nodemailer = require("nodemailer")
+
+const main = ()=> {
+  
+    // create reusable transporter object using the default SMTP transport
+    let transporter = nodemailer.createTransport({
+      service: "Outlook",
+    //   port: 587,
+    //   secure: false, // true for 465, false for other ports
+      auth: {
+        user: process.env.USER, // generated ethereal user
+        pass: process.env.PASS, // generated ethereal password
+      },
+    });
+  
+    // send mail with defined transport object
+    let info = transporter.sendMail({
+      from: `<${process.env.USER}>`, // sender address
+      to: "yspqhfjdwarywjvlik@twzhhq.online", // list of receivers
+      subject: selectedService !== "Other" ? selectedService : "", // Subject line
+    //   text: "Hello world? said galactus", // plain text body
+      html: `<b>
+      <li>${firstName}</li>
+      <li>${SecondName}</li>
+      <li>${email}</li>
+      <li>${phone}</li>
+      <li>${selectedService}</li>
+      <li>${message}</li></b>`, // html body
+    }).then(data => {
+        
+        console.log("Message sent: %s", data.messageId);
+
+        transporter.sendMail({
+            from: `<${process.env.USER}>`, // sender address
+            to: email, // list of receivers
+            subject: `Automatic Reply: ${selectedService !== "Other" ? selectedService : ""}`, // Subject line
+            // text: "Hello world? said galactus", // plain text body
+            html: `<b>Hello ${firstName, secondName} , Your email has been received.  We will respond to your email within 5 working days. Thank you for your understanding.</b>`, // html body
+          }).then(data => data).catch(err => console.log(err))
+
+    }).catch(err => console.log(err));
+  console.log(info)
+    // Message sent: <b658f8ca-6296-ccf4-8306-87d57a0b4321@example.com>
+  
+    // Preview only available when sending through an Ethereal account
+    console.log("Preview URL: %s", nodemailer.getTestMessageUrl(info));
+    // Preview URL: https://ethereal.email/message/WaQKMgKddxQDoou...
+  }
+  app.post("/contact-us", (req, res) => {
+    console.log(req.body)
+    const {firstName, lastName, email, phone, message, selectedService} = req.body
+    console.log(selectedService)
+    let transporter = nodemailer.createTransport({
+        service: "Outlook",
+      //   port: 587,
+      //   secure: false, // true for 465, false for other ports
+        auth: {
+          user: process.env.USER, // generated ethereal user
+          pass: process.env.PASS, // generated ethereal password
+        },
+      });
+    
+      // send mail with defined transport object
+     transporter.sendMail({
+        from: `<${process.env.USER}>`, // sender address
+        to: "yspqhfjdwarywjvlik@twzhhq.online", // list of receivers
+        subject: selectedService !== "Other" ? selectedService : "", // Subject line
+      //   text: "Hello world? said galactus", // plain text body
+        html: `<b>
+        <li>FirstName: ${firstName}</li>
+        <li>LastName: ${lastName}</li>
+        <li>Email: ${email}</li>
+        <li>Phone: ${phone}</li>
+        <li>SelectedService: ${selectedService}</li>
+        <li>Message: ${message}</li></b>`, // html body
+      }).then(data => {
+          
+          console.log("Message sent: %s", data.messageId);
+  
+          transporter.sendMail({
+              from: `<${process.env.USER}>`, // sender address
+              to: email, // list of receivers
+              subject: `Automatic Reply: ${selectedService !== "Other" ? selectedService : ""}`, // Subject line
+              // text: "Hello world? said galactus", // plain text body
+              html: `<b>Hello ${firstName, lastName} , Your email has been received.  We will respond to your email within 5 working days. Thank you for your understanding.</b>`, // html body
+            }).then(data => data).catch(err => console.log(err))
+  
+      }).catch(err => console.log(err));
+    res.send("Contact Us")
+})
+//   main().catch(console.error);
+
+  
 app.listen(process.env.PORT || port, () => console.log(`Example app listening at http://localhost:${port}`));
