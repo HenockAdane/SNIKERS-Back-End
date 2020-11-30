@@ -1,6 +1,8 @@
 const express = require("express")
 const app = express()
 const port = 3000
+const nodemailer = require("nodemailer")
+
 
 const bodyParser = require("body-parser")
 //get the body parser
@@ -483,7 +485,6 @@ app.get("/shop/all/featured", (req, res) => {
 //39
 
 //h , h@h, hh
-const nodemailer = require("nodemailer")
 
 const main = ()=> {
   
