@@ -1,8 +1,6 @@
 const express = require("express")
 const app = express()
 const port = 3000
-const nodemailer = require("nodemailer")
-
 
 const bodyParser = require("body-parser")
 //get the body parser
@@ -58,6 +56,10 @@ const userSchema = Schema({
     },
     password: {
         type: String,
+        required: true
+    },
+    favouriteProduct: {
+        type: Array,
         required: true
     },
     confirmationCode: {
@@ -280,6 +282,7 @@ app.post("/signUp", (req, res)=> {
                     lastName: lastName,
                     email: email,
                     password: data,
+                    favouriteProduct: [],
                     confirmationCode: code,
                     confirmed: false,
                     createdAt: new Date()
@@ -339,6 +342,7 @@ app.post("/confirmation", (req, res) => {
         if (doc.confirmationCode === attemptedConfirmation){
             doc.confirmed = true
             doc.save()
+            user = doc
             res.send(doc)
             console.log("code is true")
         }
@@ -368,6 +372,7 @@ app.post("/resendConfirmationCode", (req, res) => {
                 }
 
                 doc.confirmationCode = newCode;
+                user = doc
                 doc.save()
                 console.log("code has been resent")
 
@@ -397,6 +402,48 @@ app.post("/resendConfirmationCode", (req, res) => {
     }).then(err => `This is the resend Confirmation code error: ${err}`)
 })
 
+
+app.post("/toggle-favourites", (req,res) =>{
+
+
+    const {title, color, size} = req.body
+
+
+    if (user){
+        const {email} = user
+        console.log(email)
+
+        UserModel.findOne({email: email}).then(doc =>{
+
+            let {favouriteProduct} = doc
+    
+            let exists = favouriteProduct.find(favourite => favourite.title === title && favourite.color === color && favourite.size === size)
+    
+            if (exists){
+                doc.favouriteProduct = favouriteProduct.filter(favourite => favourite !== exists)
+                doc.save()
+            }
+    
+            else{
+                doc.favouriteProduct = [...favouriteProduct, req.body]
+                doc.save()
+            }
+
+            res.send(doc)
+
+            
+    
+    
+    
+        })
+
+        console.log("user exists")
+    }
+
+    else{
+        console.log("user doesnt exist")
+    }
+})
 
 //sign in route
 app.post("/signIn", (req, res)=> {
@@ -485,6 +532,7 @@ app.get("/shop/all/featured", (req, res) => {
 //39
 
 //h , h@h, hh
+const nodemailer = require("nodemailer")
 
 const main = ()=> {
   
