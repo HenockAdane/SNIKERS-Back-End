@@ -1,6 +1,7 @@
+require("dotenv").config()
 const express = require("express")
 const app = express()
-const port = 3000
+const port = 3001
 
 const bodyParser = require("body-parser")
 //get the body parser
@@ -59,6 +60,10 @@ const userSchema = Schema({
         required: true
     },
     favouriteProduct: {
+        type: Array,
+        required: true
+    },
+    orders: {
         type: Array,
         required: true
     },
@@ -283,6 +288,7 @@ app.post("/signUp", (req, res)=> {
                     email: email,
                     password: data,
                     favouriteProduct: [],
+                    orders: [],
                     confirmationCode: code,
                     confirmed: false,
                     createdAt: new Date()
@@ -492,6 +498,45 @@ app.post("/signIn", (req, res)=> {
 
 })
 
+app.put("/signOut", (req,res) => {
+    user = null
+    res.send({user})
+    console.log("signed out")
+
+})
+
+app.put("/settings", (req, res) => {
+
+    const {email, currentPassword, newPassword} = req.body
+
+    UserModel.findOne({email: user.email}).then(doc => {
+        console.log(doc + "user does exist")
+        bcrypt.compare(currentPassword, doc.password).then(result => {
+            if (result){
+                bcrypt.hash(newPassword, 10).then(hashedPassword => {
+                    doc.email = email
+                    doc.password = hashedPassword
+                    doc.save()
+                    user = doc
+                    res.send(user)
+                })
+
+            }
+
+        }).catch(err => console.log(err))
+    
+    }).catch(err => console.log(err))
+
+})
+
+app.delete("/deleteAccount", (req, res)=> {
+    UserModel.deleteOne({email: user.email}).then(doc => {
+        user = null
+        res.send({status:200, currentUser: null})
+
+    })
+})
+
 
 
 
@@ -524,6 +569,40 @@ app.get("/shop/all/featured", (req, res) => {
         console.log("data for all shoes is sent")
 
     }).catch(err => console.log(`The error for all shoes route: ${err}`))
+
+})
+
+const stripe = require("stripe")(process.env.STRIPEKEY)
+app.post("/payment", (req, res)=>{
+    const {token, amount, newOrder} = req.body
+    console.log(token)
+    const body = {
+        source: token.id,
+        amount: amount,
+        currency: "GBP"
+    }
+
+    console.log('payment request')
+
+    stripe.charges.create(body, (stripeErr, stripeRes)=> {
+
+        if (stripeErr){
+            res.status(500).send({error: stripeErr})
+        }
+        else{
+            UserModel.findOne({email : user.email}).then(doc => {
+                
+                const {orders} = doc
+
+                doc.orders = [...orders, newOrder]
+                user = doc
+                doc.save()
+                res.status(200).send({success: stripeRes, doc:doc})
+            })
+
+                
+        }
+    })
 
 })
 
@@ -623,6 +702,8 @@ const main = ()=> {
     res.send("Contact Us")
 })
 //   main().catch(console.error);
+
+
 
   
 app.listen(process.env.PORT || port, () => console.log(`Example app listening at http://localhost:${port}`));
