@@ -1,6 +1,6 @@
 const express = require("express")
 const app = express()
-const port = 3001
+const port = 3000
 
 const bodyParser = require("body-parser")
 //get the body parser
@@ -67,7 +67,7 @@ const userSchema = Schema({
         required: true
     },
     confirmationCode: {
-        type: String,
+        type: Object,
         required: true
     },
     confirmed:{
@@ -265,7 +265,7 @@ app.post("/signUp", (req, res)=> {
         //checking if user with that email exists
         if (doc){
             console.log("User With This Email Already Exists")
-            res.send("A User With This Email Already Exists")
+            res.send({message: "A User With This Email Already Exists"})
         }
 
         else{
@@ -288,7 +288,10 @@ app.post("/signUp", (req, res)=> {
                     password: data,
                     favouriteProduct: [],
                     orders: [],
-                    confirmationCode: code,
+                    confirmationCode: {
+                        value: code,
+                        createdAt: new Date().getTime()
+                    },
                     confirmed: false,
                     createdAt: new Date()
                 })
@@ -297,6 +300,7 @@ app.post("/signUp", (req, res)=> {
                 
                 
                 User.save()
+                user = User
 
                 let transporter = nodemailer.createTransport({
                     service: "Outlook",
@@ -314,9 +318,11 @@ app.post("/signUp", (req, res)=> {
                     to: email, // list of receivers
                     subject: "Confirmation Code", // Subject line
                   //   text: "Hello world? said galactus", // plain text body
-                    html: `<b>${code}</b>`, // html body
+                    html: `<b><p>This Code Will Expire In 5 Minutes. If The Code Has Expired, Please Request For A New One.</p>
+                    <p>Confirmation Code:${code}</p></b>`, // html body
                   }).then(dataa => {
                       
+                      res.send({message: "Account Has Been Created. Please Confirm Email To Access Account", user: user})
                       console.log("Message sent: %s", dataa.messageId);
                   }).catch(err => console.log(err))
 
@@ -340,19 +346,46 @@ app.post("/signUp", (req, res)=> {
 })
 
 
+// app.post("/confirmation", (req, res) => {
+//     const {currentUser, attemptedConfirmation} = req.body
+//     UserModel.findOne({email: currentUser.email}).then(doc => {
+//         console.log(attemptedConfirmation)
+//         if (doc.confirmationCode === attemptedConfirmation){
+//             doc.confirmed = true
+//             doc.save()
+//             user = doc
+//             res.send(doc)
+//             console.log("code is true")
+//         }
+
+//         else{
+//             console.log("code is false")
+//         }
+
+//         console.log("confirmmmconfirmmmmmmmmmmmmmmmmmmmmm")
+//     })
+    
+// })
+
 app.post("/confirmation", (req, res) => {
-    const {currentUser, attemptedConfirmation} = req.body
+    const {currentUser, attemptedConfirmationCode, attemptedDate} = req.body
+    console.log(currentUser)
     UserModel.findOne({email: currentUser.email}).then(doc => {
-        console.log(attemptedConfirmation)
-        if (doc.confirmationCode === attemptedConfirmation){
+        console.log(attemptedConfirmationCode)
+        console.log(attemptedDate - doc.confirmationCode.createdAt)
+        if (doc.confirmationCode.value === attemptedConfirmationCode && (attemptedDate - doc.confirmationCode.createdAt) < 300000){
             doc.confirmed = true
             doc.save()
             user = doc
-            res.send(doc)
+            res.send({
+                message: `Thank You ${user.firstName} ${user.lastName}, Your Account Has Been Confirmed. Enjoy!`,
+                user:doc})
             console.log("code is true")
         }
 
         else{
+
+            res.send({message: "The Confirmation Code Is Either Expired or Incorrect"})
             console.log("code is false")
         }
 
@@ -361,11 +394,12 @@ app.post("/confirmation", (req, res) => {
     
 })
 
+
 app.post("/resendConfirmationCode", (req, res) => {
     const {email} = req.body
     UserModel.findOne({email: email}).then(doc => {
         const options = "abcdefghijklmnopqrstuvwxyz0123456789"
-                let oldCode = doc.confirmationCode
+                let oldCode = doc.confirmationCode.value
                 let newCode= ""
 
                 while (newCode.length < 50){
@@ -376,7 +410,10 @@ app.post("/resendConfirmationCode", (req, res) => {
                     }
                 }
 
-                doc.confirmationCode = newCode;
+                doc.confirmationCode = {
+                    value: newCode,
+                    createdAt: new Date().getTime()
+                }
                 user = doc
                 doc.save()
                 console.log("code has been resent")
@@ -398,13 +435,16 @@ app.post("/resendConfirmationCode", (req, res) => {
                     to: email, // list of receivers
                     subject: "New Confirmation Code", // Subject line
                   //   text: "Hello world? said galactus", // plain text body
-                    html: `<b>${newCode}</b>`, // html body
+                    html: `<b><p>This Code Will Expire In 5 Minutes. If The Code Has Expired, Please Request For A New One.</p>
+                    </p>Confirmation Code:${newCode}</p></b>`, // html body
                   }).then(dataa => {
+
+                    res.send({message: `The Confirmation Code Has Been Resent To The Email: ${user.email}`})
                       
                       console.log("Message sent: %s", dataa.messageId);
                   }).catch(err => console.log(err))
 
-    }).then(err => `This is the resend Confirmation code error: ${err}`)
+    }).catch(err => `This is the resend Confirmation code error: ${err}`)
 })
 
 
@@ -474,10 +514,11 @@ app.post("/signIn", (req, res)=> {
                 if (data){
                     console.log("password does match")
                     user = doc
-                    res.send(user)
+                    res.send({message:`Welcome ${user.firstName} ${user.lastName}` , user:user})
                 }
 
                 else{
+                    res.send({message: "Password Does Not Match. Please Try Again"})
                     console.log("password doesnt match")
                 }
             })
@@ -486,7 +527,7 @@ app.post("/signIn", (req, res)=> {
         else{
             console.log("User does not exist")
     
-            res.send("A User With This Email Does Not Exist")
+            res.send({message:"A User With This Email Does Not Exist"})
         }
     
 
@@ -588,16 +629,27 @@ app.post("/payment", (req, res)=>{
         if (stripeErr){
             res.status(500).send({error: stripeErr})
         }
+
         else{
+            console.log(user + "userrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr")
+            
+            if (user){
+                
             UserModel.findOne({email : user.email}).then(doc => {
                 
                 const {orders} = doc
 
-                doc.orders = [...orders, newOrder]
+                doc.orders = [...orders, {...newOrder, dispatchTo: `${user.firstName} ${user.lastName}`}]
                 user = doc
                 doc.save()
-                res.status(200).send({success: stripeRes, doc:doc})
+                res.status(200).send({success: stripeRes, user: doc})
             })
+        }
+
+        else{
+            res.status(200).send({success: stripeRes, user: user})
+
+        }
 
                 
         }
