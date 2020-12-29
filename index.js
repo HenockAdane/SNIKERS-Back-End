@@ -217,7 +217,7 @@ UserModel.find().then(data => {
 // })
 
 
-app.get("/products", (req, res) => {
+app.get("/products/all", (req, res) => {
     ProductModel.find().then(data => {
         products = [...data];
         res.send(products)
@@ -377,7 +377,7 @@ app.post("/confirmation", (req, res) => {
             doc.confirmed = true
             doc.save()
             user = doc
-            res.send({
+            res.status(200).send({
                 message: `Thank You ${user.firstName} ${user.lastName}, Your Account Has Been Confirmed. Enjoy!`,
                 user:doc})
             console.log("code is true")
@@ -385,7 +385,7 @@ app.post("/confirmation", (req, res) => {
 
         else{
 
-            res.send({message: "The Confirmation Code Is Either Expired or Incorrect"})
+            res.status(200).send({message: "This Confirmation Code Is Either Expired or Incorrect"})
             console.log("code is false")
         }
 
@@ -514,11 +514,11 @@ app.post("/signIn", (req, res)=> {
                 if (data){
                     console.log("password does match")
                     user = doc
-                    res.send({message:`Welcome ${user.firstName} ${user.lastName}` , user:user})
+                    res.status(200).send({message:`Welcome ${user.firstName} ${user.lastName}` , user:user})
                 }
 
                 else{
-                    res.send({message: "Password Does Not Match. Please Try Again"})
+                    res.status(200).send({message: "Password Does Not Match. Please Try Again"})
                     console.log("password doesnt match")
                 }
             })
@@ -527,7 +527,7 @@ app.post("/signIn", (req, res)=> {
         else{
             console.log("User does not exist")
     
-            res.send({message:"A User With This Email Does Not Exist"})
+            res.status(200).send({message:"A User With This Email Does Not Exist"})
         }
     
 
@@ -545,25 +545,50 @@ app.put("/signOut", (req,res) => {
 
 })
 
-app.put("/settings", (req, res) => {
+app.put("/settings/change/password", (req, res) => {
 
-    const {email, currentPassword, newPassword} = req.body
+    const {currentUser, currentPassword, newPassword} = req.body
 
-    UserModel.findOne({email: user.email}).then(doc => {
+    UserModel.findOne({email: currentUser.email}).then(doc => {
         console.log(doc + "user does exist")
         bcrypt.compare(currentPassword, doc.password).then(result => {
             if (result){
                 bcrypt.hash(newPassword, 10).then(hashedPassword => {
-                    doc.email = email
+                    console.log("password changed")
                     doc.password = hashedPassword
                     doc.save()
-                    user = doc
-                    res.send(user)
+                    res.status(200).send({message: "Your Password Has Been Updated", user: doc})
                 })
 
             }
 
+            else{
+                res.status(200).send({message: "Current Password Is Input Does Not Match The Current Password Of This Account"})
+            }
+
         }).catch(err => console.log(err))
+    
+    }).catch(err => console.log(err))
+
+})
+
+app.put("/settings/change/email", (req, res) => {
+
+    const {currentUser, email} = req.body
+
+    console.log(email)
+
+    console.log(user.email)
+    
+
+    UserModel.findOne({email: currentUser.email}).then(doc => {
+
+
+        doc.email = email
+        user = doc
+        doc.save()
+        res.status(200).send({message: "Your Email Has Been Updated", user: doc})
+        
     
     }).catch(err => console.log(err))
 
@@ -747,14 +772,32 @@ const main = ()=> {
               subject: `Automatic Reply: ${selectedService !== "Other" ? selectedService : ""}`, // Subject line
               // text: "Hello world? said galactus", // plain text body
               html: `<b>Hello ${firstName, lastName} , Your email has been received.  We will respond to your email within 5 working days. Thank you for your understanding.</b>`, // html body
-            }).then(data => data).catch(err => console.log(err))
+            }).then(data => {
+                res.status(200).send({message: "Your Form Has Been Submitted"})
+                return data
+            }).catch(err => res.status(502).send({message: "There Has Been An Unexpected Error, Please Try Again"}))
   
       }).catch(err => console.log(err));
-    res.send("Contact Us")
+    
 })
 //   main().catch(console.error);
 
 
+
+app.get("/products/:id", (req, res)=> {
+    console.log(req.params.id + "titleeeeeeeeeeeeeeeeeeeeeeeeeeeeeee")
+
+    ProductModel.findOne({_id: req.params.id}).then(doc => {
+        console.log(doc)
+        res.status(200).send(doc)
+        console.log(doc, req.params.id + "heloooooooooooooooooooooooo")
+        console.log(Array.isArray(doc))
+    }).catch(err => {
+        res.status(404).send()
+    })
+
+
+})
 
   
 app.listen(process.env.PORT || port, () => console.log(`Example app listening at http://localhost:${port}`));
