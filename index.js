@@ -439,7 +439,7 @@ app.post("/resendConfirmationCode", (req, res) => {
                     </p>Confirmation Code:${newCode}</p></b>`, // html body
                   }).then(dataa => {
 
-                    res.send({message: `The Confirmation Code Has Been Resent To The Email: ${user.email}`})
+                    res.send({message: `The Confirmation Code Has Been Resent To The Email: ${user.email}`, user:doc})
                       
                       console.log("Message sent: %s", dataa.messageId);
                   }).catch(err => console.log(err))
